@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>扫雷</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="game-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">✦</span>
+        <h1>扫雷</h1>
+      </div>
+      <div class="difficulty" role="group" aria-label="选择难度">
+        <button class="difficulty-button active" data-difficulty="easy" type="button">简单</button>
+        <button class="difficulty-button" data-difficulty="hard" type="button">困难</button>
+        <button class="difficulty-button" data-difficulty="nightmare" type="button">噩梦</button>
+      </div>
+    </header>
+
+    <section class="game-panel" aria-label="扫雷游戏">
+      <div class="game-info">
+        <div class="stat"><span class="stat-label">剩余雷数</span><strong id="mine-count">010</strong></div>
+        <button id="restart-button" class="restart-button" type="button" title="重新开始" aria-label="重新开始">↻</button>
+        <div class="stat stat-right"><span class="stat-label">用时</span><strong id="timer">000</strong></div>
+      </div>
+      <div class="status-line">
+        <span id="game-status" aria-live="polite">准备开始</span>
+        <span class="mouse-help">左键翻开 · 右键插旗</span>
+      </div>
+      <div class="board-scroll">
+        <div id="board" class="board" role="grid" aria-label="扫雷棋盘"></div>
+      </div>
+    </section>
+  </main>
+  <script src="game.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
