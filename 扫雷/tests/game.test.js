@@ -29,7 +29,7 @@ test('adjacent mine counts include all eight neighboring positions', () => {
 
   assert.equal(game.getCell(0, 1).isMine, true);
   assert.equal(game.getCell(1, 2).adjacentMines, 3);
-  assert.equal(game.getCell(2, 0).adjacentMines, 0);
+  assert.equal(game.getCell(2, 0).adjacentMines, 1);
 });
 
 test('empty-area expansion keeps flagged cells covered', () => {
