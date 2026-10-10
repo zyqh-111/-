@@ -29,7 +29,7 @@ function readAsset(name) {
   return fs.readFileSync(path.join(__dirname, 'app', name));
 }
 
-function createRequestHandler() {
+function createRequestHandler(onServed = () => {}) {
   return (request, response) => {
     const assetName = normalizeAssetPath(request.url);
     if (!assetName) {
@@ -46,6 +46,7 @@ function createRequestHandler() {
         'X-Content-Type-Options': 'nosniff',
       });
       response.end(data);
+      onServed();
     } catch (error) {
       response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
       response.end('Unable to load game files');
@@ -57,6 +58,15 @@ function createServerOptions() {
   return { host: '127.0.0.1', port: 0 };
 }
 
+function scheduleServerClose(server, delayMs = 2000) {
+  let timer = null;
+  return () => {
+    if (timer !== null) clearTimeout(timer);
+    timer = setTimeout(() => server.close(), delayMs);
+    if (typeof timer.unref === 'function') timer.unref();
+  };
+}
+
 function browserCandidates(url) {
   const edgePaths = [
     path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
@@ -64,34 +74,58 @@ function browserCandidates(url) {
   ].filter(Boolean);
   return [
     ...edgePaths.map((command) => ({ command, args: [`--app=${url}`, '--start-maximized'] })),
-    { command: 'cmd.exe', args: ['/c', 'start', '', url] },
+    { command: 'cmd.exe', args: ['/c', 'start', '', url], fallback: true },
   ];
 }
 
-function openBrowser(url) {
-  for (const candidate of browserCandidates(url)) {
-    if (candidate.command !== 'cmd.exe' && !fs.existsSync(candidate.command)) continue;
+function launchCandidate(candidate, spawnImpl, graceMs) {
+  return new Promise((resolve) => {
+    let child;
+    let settled = false;
+    let timer = null;
+    const finish = (success) => {
+      if (settled) return;
+      settled = true;
+      if (timer !== null) clearTimeout(timer);
+      if (success && child && typeof child.unref === 'function') child.unref();
+      resolve(success);
+    };
     try {
-      const child = spawn(candidate.command, candidate.args, {
+      child = spawnImpl(candidate.command, candidate.args, {
         detached: true,
         stdio: 'ignore',
         windowsHide: true,
       });
-      child.unref();
-      return true;
-    } catch {}
+      child.once('error', () => finish(false));
+      child.once('exit', () => finish(Boolean(candidate.fallback)));
+      child.once('spawn', () => {
+        if (candidate.fallback) finish(true);
+        else timer = setTimeout(() => finish(true), graceMs);
+      });
+    } catch {
+      finish(false);
+    }
+  });
+}
+
+async function openBrowser(url, spawnImpl = spawn, fileExists = fs.existsSync, graceMs = 250) {
+  for (const candidate of browserCandidates(url)) {
+    if (!candidate.fallback && !fileExists(candidate.command)) continue;
+    if (await launchCandidate(candidate, spawnImpl, graceMs)) return true;
   }
   return false;
 }
 
 function start() {
-  const server = http.createServer(createRequestHandler());
+  let scheduleClose = () => {};
+  const server = http.createServer(createRequestHandler(() => scheduleClose()));
+  scheduleClose = scheduleServerClose(server);
   const options = createServerOptions();
   server.listen(options.port, options.host, () => {
     const address = server.address();
     const url = `http://${options.host}:${address.port}`;
     process.stdout.write(`MINESWEEPER_URL=${url}\n`);
-    if (process.env.MINESWEEPER_NO_BROWSER !== '1') openBrowser(url);
+    if (process.env.MINESWEEPER_NO_BROWSER !== '1') void openBrowser(url);
   });
   return server;
 }
@@ -104,6 +138,7 @@ module.exports = {
   readAsset,
   createRequestHandler,
   createServerOptions,
+  scheduleServerClose,
   browserCandidates,
   openBrowser,
   start,
