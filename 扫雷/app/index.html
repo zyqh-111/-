@@ -14,9 +14,9 @@
         <h1>扫雷</h1>
       </div>
       <div class="difficulty" role="group" aria-label="选择难度">
-        <button class="difficulty-button active" data-difficulty="easy" type="button">简单</button>
-        <button class="difficulty-button" data-difficulty="hard" type="button">困难</button>
-        <button class="difficulty-button" data-difficulty="nightmare" type="button">噩梦</button>
+        <button class="difficulty-button active" data-difficulty="easy" type="button" aria-pressed="true">简单</button>
+        <button class="difficulty-button" data-difficulty="hard" type="button" aria-pressed="false">困难</button>
+        <button class="difficulty-button" data-difficulty="nightmare" type="button" aria-pressed="false">噩梦</button>
       </div>
     </header>
 
@@ -27,8 +27,13 @@
         <div class="stat stat-right"><span class="stat-label">用时</span><strong id="timer">000</strong></div>
       </div>
       <div class="status-line">
-        <span id="game-status" aria-live="polite">准备开始</span>
-        <span class="mouse-help">左键翻开 · 右键插旗</span>
+        <div><span id="game-status" aria-live="polite">准备开始</span><span id="difficulty-info">9 × 9 / 10 雷</span></div>
+        <span class="mouse-help">左键翻开 · 右键插旗 · 方向键移动 · F 插旗</span>
+      </div>
+      <div class="action-bar" role="group" aria-label="格子操作模式">
+        <span class="action-label">轻触模式</span>
+        <button class="mode-button active" data-mode="reveal" type="button" aria-pressed="true">翻开</button>
+        <button class="mode-button" data-mode="flag" type="button" aria-pressed="false">插旗</button>
       </div>
       <div class="board-scroll">
         <div id="board" class="board" role="grid" aria-label="扫雷棋盘"></div>
@@ -36,6 +41,7 @@
     </section>
   </main>
   <script src="game.js"></script>
+  <script src="timer.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

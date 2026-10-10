@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 
-const ASSET_NAMES = new Set(['index.html', 'styles.css', 'game.js', 'main.js']);
+const ASSET_NAMES = new Set(['index.html', 'styles.css', 'game.js', 'timer.js', 'main.js']);
 
 function normalizeAssetPath(requestUrl) {
   const rawPath = String(requestUrl || '/').split('?')[0];
@@ -29,7 +29,7 @@ function readAsset(name) {
   return fs.readFileSync(path.join(__dirname, 'app', name));
 }
 
-function createRequestHandler(onServed = () => {}) {
+function createRequestHandler() {
   return (request, response) => {
     const assetName = normalizeAssetPath(request.url);
     if (!assetName) {
@@ -46,7 +46,6 @@ function createRequestHandler(onServed = () => {}) {
         'X-Content-Type-Options': 'nosniff',
       });
       response.end(data);
-      onServed();
     } catch (error) {
       response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
       response.end('Unable to load game files');
@@ -56,15 +55,6 @@ function createRequestHandler(onServed = () => {}) {
 
 function createServerOptions() {
   return { host: '127.0.0.1', port: 0 };
-}
-
-function scheduleServerClose(server, delayMs = 2000) {
-  let timer = null;
-  return () => {
-    if (timer !== null) clearTimeout(timer);
-    timer = setTimeout(() => server.close(), delayMs);
-    if (typeof timer.unref === 'function') timer.unref();
-  };
 }
 
 function browserCandidates(url) {
@@ -116,16 +106,22 @@ async function openBrowser(url, spawnImpl = spawn, fileExists = fs.existsSync, g
   return false;
 }
 
-function start() {
-  let scheduleClose = () => {};
-  const server = http.createServer(createRequestHandler(() => scheduleClose()));
-  scheduleClose = scheduleServerClose(server);
+function start(startOptions = {}) {
+  const server = http.createServer(createRequestHandler());
   const options = createServerOptions();
   server.listen(options.port, options.host, () => {
     const address = server.address();
     const url = `http://${options.host}:${address.port}`;
     process.stdout.write(`MINESWEEPER_URL=${url}\n`);
-    if (process.env.MINESWEEPER_NO_BROWSER !== '1') void openBrowser(url);
+    const shouldOpen = startOptions.open !== false && process.env.MINESWEEPER_NO_BROWSER !== '1';
+    if (shouldOpen) {
+      void openBrowser(url).then((opened) => {
+        if (!opened) process.stderr.write(`无法自动打开浏览器，请手动访问：${url}\n`);
+      });
+    }
+    if (process.env.MINESWEEPER_HEALTHCHECK === '1') {
+      setTimeout(() => server.close(), 8000).unref();
+    }
   });
   return server;
 }
@@ -138,7 +134,6 @@ module.exports = {
   readAsset,
   createRequestHandler,
   createServerOptions,
-  scheduleServerClose,
   browserCandidates,
   openBrowser,
   start,

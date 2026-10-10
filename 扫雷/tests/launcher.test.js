@@ -1,19 +1,21 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
+const http = require('node:http');
 
 const {
   normalizeAssetPath,
   contentTypeFor,
   browserCandidates,
   createServerOptions,
-  scheduleServerClose,
   openBrowser,
+  start,
 } = require('../launcher.js');
 
 test('asset paths normalize to known app files and reject traversal', () => {
   assert.equal(normalizeAssetPath('/'), 'index.html');
   assert.equal(normalizeAssetPath('/styles.css?x=1'), 'styles.css');
+  assert.equal(normalizeAssetPath('/timer.js'), 'timer.js');
   assert.equal(normalizeAssetPath('/app/../game.js'), null);
   assert.equal(normalizeAssetPath('/missing.txt'), null);
 });
@@ -36,14 +38,23 @@ test('browser candidates prefer Edge app mode and retain a default-browser fallb
   assert.deepEqual(candidates.at(-1).args.slice(0, 2), ['/c', 'start']);
 });
 
-test('idle closer replaces the timer and closes the server after the grace period', async () => {
-  let closeCount = 0;
-  const server = { close: () => { closeCount += 1; } };
-  const schedule = scheduleServerClose(server, 10);
-  schedule();
-  schedule();
-  await new Promise((resolve) => setTimeout(resolve, 30));
-  assert.equal(closeCount, 1);
+test('server remains available until explicitly closed', async () => {
+  const server = start({ open: false });
+  await new Promise((resolve) => server.once('listening', resolve));
+  const { port } = server.address();
+  const request = () => new Promise((resolve, reject) => {
+    http.get(`http://127.0.0.1:${port}/`, (response) => {
+      response.resume();
+      response.once('end', () => resolve(response.statusCode));
+    }).once('error', reject);
+  });
+  try {
+    assert.equal(await request(), 200);
+    await new Promise((resolve) => setTimeout(resolve, 2200));
+    assert.equal(await request(), 200);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test('browser launch falls back when the preferred candidate emits an error', async () => {
@@ -59,4 +70,14 @@ test('browser launch falls back when the preferred candidate emits an error', as
   const opened = await openBrowser('http://127.0.0.1:1234', fakeSpawn, () => true);
   assert.equal(opened, true);
   assert.equal(attempted.length, 2);
+});
+
+test('browser launch reports failure when every candidate fails', async () => {
+  const fakeSpawn = () => {
+    const child = new EventEmitter();
+    child.unref = () => {};
+    process.nextTick(() => child.emit('error', new Error('cannot launch')));
+    return child;
+  };
+  assert.equal(await openBrowser('http://127.0.0.1:1234', fakeSpawn, () => true), false);
 });

@@ -10,7 +10,7 @@ test('game page exposes the complete playable control surface', () => {
   assert.match(html, /data-difficulty="easy"[^>]*>\s*简单/);
   assert.match(html, /data-difficulty="hard"[^>]*>\s*困难/);
   assert.match(html, /data-difficulty="nightmare"[^>]*>\s*噩梦/);
-  for (const id of ['mine-count', 'timer', 'game-status', 'restart-button', 'board']) {
+  for (const id of ['mine-count', 'timer', 'game-status', 'difficulty-info', 'restart-button', 'board']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
 });
@@ -28,4 +28,5 @@ test('controller registers left click and right-click flagging', () => {
   assert.match(script, /addEventListener\(['"]click['"]/);
   assert.match(script, /addEventListener\(['"]contextmenu['"]/);
   assert.match(script, /preventDefault\(\)/);
+  assert.match(script, /keydown/);
 });
